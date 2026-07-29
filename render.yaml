@@ -1,0 +1,36 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: newsfacts
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        sync: false
+      - key: SELLER_ACCOUNT_ID
+        sync: false
+      - key: HEDERA_NETWORK
+        value: hedera:testnet
+      - key: FACILITATOR_URL
+        value: https://api.testnet.blocky402.com
+      - key: FACT_PRICE_HBAR
+        value: "0.01"
+      - key: ALLOW_RESET
+        value: "0"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: REOWN_PROJECT_ID
+        sync: false
+      - key: PINATA_JWT
+        sync: false
+      - key: PINATA_GATEWAY
+        sync: false
+      - key: HCS_TOPIC_ID
+        sync: false

@@ -1,0 +1,54 @@
+{
+  "name": "newsfacts",
+  "version": "3.0.0",
+  "private": true,
+  "type": "module",
+  "description": "NewsFacts — pay-per-fact eyewitness reports on Hedera x402",
+  "scripts": {
+    "build:browser": "node scripts/build-browser.mjs",
+    "start": "tsx server.ts",
+    "server": "tsx server.ts",
+    "client": "tsx client.ts",
+    "mcp": "tsx mcp-server.ts",
+    "verify:testnet": "tsx scripts/verify-testnet.ts",
+    "verify:full": "tsx scripts/verify-full.ts",
+    "bounty:demo": "tsx scripts/bounty-demo.ts",
+    "test:pinata": "tsx scripts/test-pinata.ts",
+    "demo:run": "tsx scripts/demo-run.ts",
+    "demo:full": "tsx scripts/demo-full.ts",
+    "demo:gemini": "tsx scripts/demo-full.ts",
+    "postinstall": "npm run build:browser"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@google/genai": "^2.13.0",
+    "@hashgraph/hedera-wallet-connect": "^2.1.3",
+    "@hashgraph/sdk": "^2.81.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@reown/appkit": "^1.8.23",
+    "@walletconnect/universal-provider": "^2.23.10",
+    "@x402/core": "^2.19.0",
+    "@x402/express": "^2.19.0",
+    "@x402/fetch": "^2.19.0",
+    "@x402/hedera": "^2.19.0",
+    "@xenova/transformers": "^2.17.2",
+    "buffer": "^6.0.3",
+    "dotenv": "^17.2.3",
+    "esbuild": "^0.28.1",
+    "express": "^5.0.0",
+    "multer": "^2.2.0",
+    "pg": "^8.16.3",
+    "pinata": "^2.5.6",
+    "tsx": "^4.23.1"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^22.13.4",
+    "@types/pg": "^8.15.5",
+    "esbuild-plugin-polyfill-node": "^0.3.0",
+    "typescript": "^5.7.3"
+  }
+}
