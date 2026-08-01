@@ -111,7 +111,12 @@ npm run demo:full        # server running: facts + Gemini agent + live payments
 
 Live x402 fact payments verified on Hedera testnet:
 
-- **Fact detail payment:** https://hashscan.io/testnet/transaction/0.0.7162784@1785560527.600377769
+1. https://hashscan.io/testnet/transaction/0.0.7162784@1785560633.399490232
+2. https://hashscan.io/testnet/transaction/0.0.7162784@1785560650.926451354
+3. https://hashscan.io/testnet/transaction/0.0.7162784@1785560671.476364371
+4. https://hashscan.io/testnet/transaction/0.0.7162784@1785560691.551103945
+5. https://hashscan.io/testnet/transaction/0.0.7162784@1785560708.797433584
+
 - **Buyer:** https://hashscan.io/testnet/account/0.0.9769419
 - **Seller:** https://hashscan.io/testnet/account/0.0.9733389
 
