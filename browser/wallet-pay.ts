@@ -2,6 +2,8 @@ import { Buffer } from 'buffer';
 import {
   DAppConnector,
   DAppSigner,
+  extensionOpen,
+  extensionQuery,
   HederaChainId,
   HederaJsonRpcMethod,
   HederaSessionEvent,
@@ -32,6 +34,11 @@ declare global {
   }
 }
 
+const HASHPACK_EXTENSION_ID = 'hashpack';
+const HASHPACK_INSTALL_URL = 'https://www.hashpack.app/';
+const EXTENSION_POLL_MS = 400;
+const EXTENSION_WAIT_MS = 4000;
+
 const config = window.__NF_CONFIG__;
 let dAppConnector: DAppConnector | null = null;
 let dAppSigner: DAppSigner | null = null;
@@ -40,14 +47,12 @@ let payFetch: typeof fetch | null = null;
 let httpClient: x402HTTPClient | null = null;
 let statusCallback: ((message: string, isError?: boolean) => void) | null = null;
 
-function parseAccountId(value: string | undefined): string | null {
-  if (!value) return null;
-  const match = value.match(/0\.0\.\d+/);
-  return match?.[0] ?? null;
+function isHttpsOrigin() {
+  return window.location.protocol === 'https:' || window.location.hostname === 'localhost';
 }
 
-function getHashpackExtension() {
-  return dAppConnector?.extensions.find((ext) => ext.id === 'hashpack' && ext.available) ?? null;
+function hashpackExtension() {
+  return dAppConnector?.extensions.find((ext) => ext.id === HASHPACK_EXTENSION_ID && ext.available) ?? null;
 }
 
 function syncConnectedAccount() {
@@ -57,14 +62,14 @@ function syncConnectedAccount() {
     dAppSigner = null;
     payFetch = null;
     httpClient = null;
-    statusCallback?.('Wallet disconnected.');
+    statusCallback?.('HashPack disconnected.');
     return;
   }
 
   dAppSigner = signer;
   accountId = signer.getAccountId().toString();
   setupPayClient();
-  statusCallback?.(`Connected: ${accountId}`);
+  statusCallback?.(`HashPack connected: ${accountId}`);
 }
 
 function createWalletSigner(signer: DAppSigner, payerAccountId: string) {
@@ -117,11 +122,30 @@ function setupPayClient() {
   payFetch = wrapFetchWithPayment(fetch, client);
 }
 
+async function waitForHashpackExtension() {
+  const deadline = Date.now() + EXTENSION_WAIT_MS;
+  while (Date.now() < deadline) {
+    extensionQuery();
+    if (hashpackExtension()) return true;
+    await new Promise((resolve) => setTimeout(resolve, EXTENSION_POLL_MS));
+  }
+  return Boolean(hashpackExtension());
+}
+
+function hashpackMissingMessage() {
+  return `HashPack extension not found. Install it from ${HASHPACK_INSTALL_URL}, enable it in your browser, set Testnet in HashPack, then refresh this page.`;
+}
+
 export async function initWallet(onStatus: (message: string, isError?: boolean) => void) {
   statusCallback = onStatus;
 
   if (!config.reownProjectId) {
-    onStatus('Set REOWN_PROJECT_ID on the server to enable HashPack payments.', true);
+    onStatus('Server missing REOWN_PROJECT_ID — HashPack payments are disabled.', true);
+    return;
+  }
+
+  if (!isHttpsOrigin()) {
+    onStatus('HashPack requires HTTPS. Open this site with https:// in the URL.', true);
     return;
   }
 
@@ -147,46 +171,47 @@ export async function initWallet(onStatus: (message: string, isError?: boolean) 
 
   await dAppConnector.init({ logger: 'error' });
 
-  // Extensions respond asynchronously to hedera-extension-query.
-  await new Promise((resolve) => setTimeout(resolve, 800));
-
-  const hashpack = getHashpackExtension();
-  if (hashpack) {
-    onStatus('HashPack extension detected. Click Connect HashPack.');
-  } else if (window.location.protocol !== 'https:') {
-    onStatus('Use HTTPS and install the HashPack browser extension, then refresh.', true);
-  } else {
-    onStatus(
-      'HashPack extension not detected. Install it from hashpack.app, enable it, then refresh. You can also use WalletConnect QR in the modal.',
-      true,
-    );
+  const detected = await waitForHashpackExtension();
+  if (detected) {
+    onStatus('HashPack ready. Click Connect HashPack.');
+    return;
   }
+
+  onStatus(hashpackMissingMessage(), true);
 }
 
 export async function connectWallet() {
   if (!dAppConnector) {
-    throw new Error('Wallet module not initialized');
+    throw new Error('HashPack module not initialized');
   }
 
-  const hashpack = getHashpackExtension();
-  statusCallback?.(
-    hashpack
-      ? 'Opening HashPack extension… approve the connection popup.'
-      : 'Opening wallet modal… use WalletConnect QR if HashPack extension is not installed.',
-  );
+  if (!isHttpsOrigin()) {
+    throw new Error('HashPack requires HTTPS.');
+  }
+
+  let hashpack = hashpackExtension();
+  if (!hashpack) {
+    statusCallback?.('Looking for HashPack extension…');
+    extensionOpen(HASHPACK_EXTENSION_ID);
+    const detected = await waitForHashpackExtension();
+    hashpack = hashpackExtension();
+    if (!detected || !hashpack) {
+      const message = hashpackMissingMessage();
+      statusCallback?.(message, true);
+      throw new Error(message);
+    }
+  }
+
+  statusCallback?.('Opening HashPack — approve the connection in the extension popup.');
 
   try {
-    if (hashpack) {
-      await dAppConnector.connectExtension('hashpack');
-    } else {
-      await dAppConnector.openModal();
-    }
+    await dAppConnector.connectExtension(HASHPACK_EXTENSION_ID);
     syncConnectedAccount();
     if (!accountId) {
-      throw new Error('Wallet connected but no Hedera account was returned.');
+      throw new Error('HashPack connected but no Hedera account was returned.');
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Wallet connect failed';
+    const message = error instanceof Error ? error.message : 'HashPack connection failed';
     statusCallback?.(message, true);
     throw error;
   }

@@ -269,7 +269,7 @@ export function renderStudioPage(options: {
     <div class="shell">
       <header>
         <h1>NewsFacts Studio</h1>
-        <p class="subtitle">Submit facts for free. Search summaries free. Pay with HashPack via x402 on Hedera.</p>
+        <p class="subtitle">Submit facts for free. Search summaries free. Pay with HashPack on Hedera testnet.</p>
       </header>
 
       <div class="tabs">
@@ -310,7 +310,8 @@ export function renderStudioPage(options: {
             <div class="wallet-row">
               <button type="button" class="wallet-btn" id="connectWallet">Connect HashPack</button>
             </div>
-            <div class="status" id="walletStatus">Loading wallet module…</div>
+            <div class="status" id="walletStatus">Loading HashPack…</div>
+            <p class="note">HashPack browser extension required (Chrome/Brave). Site must be HTTPS. Set Testnet in HashPack.</p>
 
             <label for="searchQuery">Search eyewitness facts</label>
             <div class="search-row">
