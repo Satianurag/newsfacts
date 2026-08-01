@@ -166,9 +166,9 @@ async function handlePay(id) {
   }
 }
 
-document.getElementById('connectWallet')?.addEventListener('click', () => {
+document.getElementById('connectWallet')?.addEventListener('click', async () => {
   try {
-    connectWallet();
+    await connectWallet();
   } catch (error) {
     setWalletStatus(error.message ?? 'Wallet connect failed', true);
   }
@@ -181,4 +181,6 @@ document.getElementById('searchQuery')?.addEventListener('keydown', (event) => {
 
 initTabs();
 initSubmitForm();
-initWallet(setWalletStatus);
+initWallet(setWalletStatus).catch((error) => {
+  setWalletStatus(error?.message ?? 'Wallet init failed', true);
+});

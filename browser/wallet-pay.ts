@@ -1,12 +1,12 @@
 import { Buffer } from 'buffer';
-import type UniversalProvider from '@walletconnect/universal-provider';
 import {
-  HederaAdapter,
-  HederaChainDefinition,
-  HederaProvider,
-  hederaNamespace,
+  DAppConnector,
+  DAppSigner,
+  HederaChainId,
+  HederaJsonRpcMethod,
+  HederaSessionEvent,
 } from '@hashgraph/hedera-wallet-connect';
-import { createAppKit } from '@reown/appkit';
+import { LedgerId } from '@hiero-ledger/sdk';
 import { x402Client, x402HTTPClient } from '@x402/core/client';
 import { wrapFetchWithPayment } from '@x402/fetch';
 import {
@@ -33,19 +33,41 @@ declare global {
 }
 
 const config = window.__NF_CONFIG__;
-let universalProvider: UniversalProvider | null = null;
-let appKit: ReturnType<typeof createAppKit> | null = null;
+let dAppConnector: DAppConnector | null = null;
+let dAppSigner: DAppSigner | null = null;
 let accountId: string | null = null;
 let payFetch: typeof fetch | null = null;
 let httpClient: x402HTTPClient | null = null;
+let statusCallback: ((message: string, isError?: boolean) => void) | null = null;
 
-function parseAccountId(address: string | undefined): string | null {
-  if (!address) return null;
-  const match = address.match(/0\.0\.\d+/);
+function parseAccountId(value: string | undefined): string | null {
+  if (!value) return null;
+  const match = value.match(/0\.0\.\d+/);
   return match?.[0] ?? null;
 }
 
-function createWalletSigner(provider: UniversalProvider, payerAccountId: string) {
+function getHashpackExtension() {
+  return dAppConnector?.extensions.find((ext) => ext.id === 'hashpack' && ext.available) ?? null;
+}
+
+function syncConnectedAccount() {
+  const signer = dAppConnector?.signers[0];
+  if (!signer) {
+    accountId = null;
+    dAppSigner = null;
+    payFetch = null;
+    httpClient = null;
+    statusCallback?.('Wallet disconnected.');
+    return;
+  }
+
+  dAppSigner = signer;
+  accountId = signer.getAccountId().toString();
+  setupPayClient();
+  statusCallback?.(`Connected: ${accountId}`);
+}
+
+function createWalletSigner(signer: DAppSigner, payerAccountId: string) {
   const network = config.network;
   return {
     accountId: payerAccountId,
@@ -78,17 +100,7 @@ function createWalletSigner(provider: UniversalProvider, payerAccountId: string)
       const client = createHederaClient(network);
       try {
         tx.freezeWith(client);
-        const signerAccountId = `${network}:${payerAccountId}`;
-        const hederaProvider = provider as HederaProvider & {
-          hedera_signTransaction: (args: {
-            signerAccountId: string;
-            transactionBody: TransferTransaction;
-          }) => Promise<unknown>;
-        };
-        await hederaProvider.hedera_signTransaction({
-          signerAccountId,
-          transactionBody: tx,
-        });
+        await signer.signTransaction(tx);
         return Buffer.from(tx.toBytes()).toString('base64');
       } finally {
         client.close();
@@ -98,14 +110,16 @@ function createWalletSigner(provider: UniversalProvider, payerAccountId: string)
 }
 
 function setupPayClient() {
-  if (!accountId || !universalProvider) return;
-  const signer = createWalletSigner(universalProvider, accountId);
+  if (!accountId || !dAppSigner) return;
+  const signer = createWalletSigner(dAppSigner, accountId);
   const client = new x402Client().register('hedera:*', new ExactHederaScheme(signer));
   httpClient = new x402HTTPClient(client);
   payFetch = wrapFetchWithPayment(fetch, client);
 }
 
 export async function initWallet(onStatus: (message: string, isError?: boolean) => void) {
+  statusCallback = onStatus;
+
   if (!config.reownProjectId) {
     onStatus('Set REOWN_PROJECT_ID on the server to enable HashPack payments.', true);
     return;
@@ -118,52 +132,64 @@ export async function initWallet(onStatus: (message: string, isError?: boolean) 
     icons: ['https://hashscan.io/favicon.ico'],
   };
 
-  const hederaNativeAdapter = new HederaAdapter({
-    projectId: config.reownProjectId,
-    networks:
-      config.network === 'hedera:mainnet'
-        ? [HederaChainDefinition.Native.Mainnet]
-        : [HederaChainDefinition.Native.Testnet],
-    namespace: hederaNamespace,
-  });
+  const ledgerId = config.network === 'hedera:mainnet' ? LedgerId.MAINNET : LedgerId.TESTNET;
+  const chainId = config.network === 'hedera:mainnet' ? HederaChainId.Mainnet : HederaChainId.Testnet;
 
-  universalProvider = (await HederaProvider.init({
-    projectId: config.reownProjectId,
+  dAppConnector = new DAppConnector(
     metadata,
-  })) as UniversalProvider;
+    ledgerId,
+    config.reownProjectId,
+    Object.values(HederaJsonRpcMethod),
+    [HederaSessionEvent.ChainChanged, HederaSessionEvent.AccountsChanged],
+    [chainId],
+    'error',
+  );
 
-  appKit = createAppKit({
-    adapters: [hederaNativeAdapter],
-    // @ts-expect-error universal provider type mismatch in wallet-connect
-    universalProvider,
-    projectId: config.reownProjectId,
-    metadata,
-    networks:
-      config.network === 'hedera:mainnet'
-        ? [HederaChainDefinition.Native.Mainnet]
-        : [HederaChainDefinition.Native.Testnet],
-  });
+  await dAppConnector.init({ logger: 'error' });
 
-  appKit.subscribeAccount((account) => {
-    accountId = parseAccountId(account?.address);
-    if (accountId) {
-      setupPayClient();
-      onStatus(`Connected: ${accountId}`);
-    } else {
-      payFetch = null;
-      httpClient = null;
-      onStatus('Wallet disconnected.');
-    }
-  });
+  // Extensions respond asynchronously to hedera-extension-query.
+  await new Promise((resolve) => setTimeout(resolve, 800));
 
-  onStatus('Click Connect HashPack to pay for fact details.');
+  const hashpack = getHashpackExtension();
+  if (hashpack) {
+    onStatus('HashPack extension detected. Click Connect HashPack.');
+  } else if (window.location.protocol !== 'https:') {
+    onStatus('Use HTTPS and install the HashPack browser extension, then refresh.', true);
+  } else {
+    onStatus(
+      'HashPack extension not detected. Install it from hashpack.app, enable it, then refresh. You can also use WalletConnect QR in the modal.',
+      true,
+    );
+  }
 }
 
-export function connectWallet() {
-  if (!appKit) {
+export async function connectWallet() {
+  if (!dAppConnector) {
     throw new Error('Wallet module not initialized');
   }
-  appKit.open();
+
+  const hashpack = getHashpackExtension();
+  statusCallback?.(
+    hashpack
+      ? 'Opening HashPack extension… approve the connection popup.'
+      : 'Opening wallet modal… use WalletConnect QR if HashPack extension is not installed.',
+  );
+
+  try {
+    if (hashpack) {
+      await dAppConnector.connectExtension('hashpack');
+    } else {
+      await dAppConnector.openModal();
+    }
+    syncConnectedAccount();
+    if (!accountId) {
+      throw new Error('Wallet connected but no Hedera account was returned.');
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Wallet connect failed';
+    statusCallback?.(message, true);
+    throw error;
+  }
 }
 
 export function isWalletReady() {

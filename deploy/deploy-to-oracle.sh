@@ -10,7 +10,7 @@ source "${SCRIPT_DIR}/oracle-vm.env"
 SSH_OPTS=(-i "${ORACLE_SSH_KEY}" -o StrictHostKeyChecking=no)
 REMOTE="${ORACLE_VM_USER}@${ORACLE_VM_IP}"
 REMOTE_DIR="/home/ubuntu/newsfacts"
-PUBLIC_URL="http://${ORACLE_VM_IP}"
+PUBLIC_URL="https://${ORACLE_VM_IP//./-}.sslip.io"
 
 echo "==> Sync project to ${REMOTE}:${REMOTE_DIR}"
 ssh "${SSH_OPTS[@]}" "${REMOTE}" "mkdir -p ${REMOTE_DIR}"
