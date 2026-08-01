@@ -42,6 +42,9 @@ const HASHPACK_INSTALL_URL = 'https://www.hashpack.app/';
 const EXTENSION_POLL_MS = 400;
 const EXTENSION_WAIT_MS = 6000;
 
+const TESTNET_HELP =
+  'NewsFacts uses Hedera TESTNET only. In HashPack: open the extension → switch network to Testnet (not Mainnet) → create or import a testnet account → get free test HBAR from portal.hedera.com/faucet → then connect again.';
+
 const config = window.__NF_CONFIG__;
 let dAppConnector: DAppConnector | null = null;
 let dAppSigner: DAppSigner | null = null;
@@ -267,7 +270,7 @@ export async function initWallet(onStatus: (message: string, isError?: boolean) 
 
   const hashpack = await waitForHashpackExtension();
   if (hashpack) {
-    onStatus(`HashPack detected (${hashpack.name ?? hashpack.id}). Click Connect HashPack.`);
+    onStatus(`HashPack detected. This app needs a Hedera TESTNET account. ${TESTNET_HELP}`);
     return;
   }
 
@@ -296,18 +299,23 @@ export async function connectWallet() {
     }
   }
 
-  statusCallback?.('Opening HashPack — approve the connection in the extension popup.');
+  statusCallback?.(
+    'Opening HashPack on Hedera TESTNET — pick a testnet account (0.0.xxxxx) in the popup.',
+  );
 
   try {
     await connectHashpack(hashpack);
     syncConnectedAccount();
     if (!accountId) {
-      throw new Error('HashPack connected but no Hedera account was returned.');
+      throw new Error(`No testnet account paired. ${TESTNET_HELP}`);
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'HashPack connection failed';
+    const raw = error instanceof Error ? error.message : 'HashPack connection failed';
+    const message = /reject|cancel|timeout|applicable|account/i.test(raw)
+      ? `${raw} ${TESTNET_HELP}`
+      : raw;
     statusCallback?.(message, true);
-    throw error;
+    throw new Error(message);
   }
 }
 

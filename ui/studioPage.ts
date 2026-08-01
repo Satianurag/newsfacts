@@ -311,7 +311,7 @@ export function renderStudioPage(options: {
               <button type="button" class="wallet-btn" id="connectWallet">Connect HashPack</button>
             </div>
             <div class="status" id="walletStatus">Loading HashPack…</div>
-            <p class="note">HashPack browser extension required (Chrome/Brave). Site must be HTTPS. Set Testnet in HashPack.</p>
+            <p class="note"><strong>Required:</strong> HashPack on <strong>Hedera Testnet</strong> with a testnet account (not mainnet). Free test HBAR: <a href="https://portal.hedera.com/faucet" target="_blank" rel="noopener">portal.hedera.com/faucet</a></p>
 
             <label for="searchQuery">Search eyewitness facts</label>
             <div class="search-row">
