@@ -109,11 +109,13 @@ npm run demo:full        # server running: facts + Gemini agent + live payments
 
 ## Example HashScan links (testnet)
 
-Replace with your own txs from `npm run client` or `demo:full`:
+Live x402 fact payments verified on Hedera testnet:
 
-- https://hashscan.io/testnet/transaction/0.0.7162784@1785167055.685467029
-- https://hashscan.io/testnet/account/0.0.9769419 (buyer)
-- https://hashscan.io/testnet/account/0.0.9733389 (seller)
+- **Fact detail payment:** https://hashscan.io/testnet/transaction/0.0.7162784@1785560527.600377769
+- **Buyer:** https://hashscan.io/testnet/account/0.0.9769419
+- **Seller:** https://hashscan.io/testnet/account/0.0.9733389
+
+Reproduce: `npm run server` then `npm run verify:testnet`
 
 ## Bounty submission
 
